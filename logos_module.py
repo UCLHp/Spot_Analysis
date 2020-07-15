@@ -34,6 +34,7 @@ class Output:
             full_data.append([x.lstrip().rstrip() for x in line.split(',')])
             if line.startswith('Beamspots found'):
                 no_of_spots = int(line[18:])
+        self.output_loc = textfile
         self.full_data = full_data
         date = full_data[0][3]
         self.datetime = datetime.datetime.strptime(date, '%H:%M:%S %m/%d/%Y')
@@ -52,33 +53,58 @@ class Output:
             self.spots_diameter[i] = full_data[row][25]
             self.spots_quality[i] = full_data[row][27]
 
+class SingleSpotTif:
+    '''
+    The SingleSpotTif class will create an object with poperties that describe
+    the spot as well as generate profiles for analysis
+    '''
+    # Asterisk indicates that proceding arguments are not positional
+    def __init__(self, file, *, threshold=0.9, resolution=[1,1]):
+        self.array = np.array(Image.open(file))
+        self.normarray = np.true_divide(self.array, np.amax(self.array))
 
-def image_to_array(file, norm = True):
-    image = Image.open(file)
-    array = np.array(image)
-    if norm:
-        array = np.true_divide(array, np.amax(array))
-    return array
+        above_thresh = np.where(self.normarray > threshold)
+        center_row = int((max(above_thresh[0])+min(above_thresh[0]))/2)
+        center_col = int((max(above_thresh[1])+min(above_thresh[1]))/2)
 
-def find_centre(array, *, threshold=0.9,  norm=True):
-    if norm:
-        array = np.true_divide(array, np.amax(array))
-    array = np.true_divide(array, 1)
-    above_thresh = np.where(array > threshold)
-    CenterRow = int((max(above_thresh[0])+min(above_thresh[0]))/2)
-    CenterCol = int((max(above_thresh[1])+min(above_thresh[1]))/2)
-    return [CenterRow, CenterCol]
+        self.center = [center_row, center_col]
 
-def central_xy_profiles(array, center, resolution=[1,1]):
-    x = np.asarray(range(0, array.shape[1]))
-    y = np.asarray(range(0, array.shape[0]))
-    centered_x = (x - center[1])/resolution[0]
-    centered_y = (y - center[0])/resolution[1]
+        x = np.asarray(range(0, self.array.shape[1]))
+        y = np.asarray(range(0, self.array.shape[0]))
+        center_x = (x-self.center[1]) / resolution[0]
+        center_y = (y-self.center[0]) / resolution[1]
 
-    XProfile=np.asarray([centered_x, array[center[0]]])
-    YProfile=np.asarray([centered_y, array[:, center[1]]])
+        self.x = np.asarray([center_x, self.array[self.center[0]]])
+        self.y = np.asarray([center_y, self.array[:, self.center[1]]])
+        self.x_norm = np.asarray([center_x, self.normarray[self.center[0]]])
+        self.y_norm = np.asarray([center_y, self.normarray[:, self.center[1]]])
 
-    return XProfile, YProfile
+# def image_to_array(file, norm = True):
+#     image = Image.open(file)
+#     array = np.array(image)
+#     if norm:
+#         array = np.true_divide(array, np.amax(array))
+#     return array
+#
+# def find_centre(array, *, threshold=0.9,  norm=True):
+#     if norm:
+#         array = np.true_divide(array, np.amax(array))
+#     array = np.true_divide(array, 1)
+#     above_thresh = np.where(array > threshold)
+#     CenterRow = int((max(above_thresh[0])+min(above_thresh[0]))/2)
+#     CenterCol = int((max(above_thresh[1])+min(above_thresh[1]))/2)
+#     return [CenterRow, CenterCol]
+#
+# def central_xy_profiles(array, center, resolution=[1,1]):
+#     x = np.asarray(range(0, array.shape[1]))
+#     y = np.asarray(range(0, array.shape[0]))
+#     centered_x = (x - center[1])/resolution[0]
+#     centered_y = (y - center[0])/resolution[1]
+#
+#     XProfile=np.asarray([centered_x, array[center[0]]])
+#     YProfile=np.asarray([centered_y, array[:, center[1]]])
+#
+#     return XProfile, YProfile
 
 def log_2_gaus_func(x, height, sigma_1, sigma_2):
     return np.log10(    (height
